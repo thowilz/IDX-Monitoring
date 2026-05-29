@@ -1,0 +1,17 @@
+# secrets
+.env
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env.local
+
+# data: keep the dir + sample taxonomy, ignore generated time-series & render
+data/timeseries/*.csv
+render/index.html
+
+# os / editor
+.DS_Store
+*.swp

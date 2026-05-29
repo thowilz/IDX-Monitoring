@@ -1,0 +1,7 @@
+# Pinned deps for the IHSG Macro Monitor. Lean by design.
+# Tested with Python 3.11. Recreate on a new machine with:
+#   python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+requests==2.32.3
+PyYAML==6.0.1
+Jinja2==3.1.6
+openpyxl==3.1.5   # only used to read the .xlsx taxonomy catalogue

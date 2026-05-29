@@ -1,0 +1,144 @@
+system:
+  name: IHSG Macro Monitoring System
+  schema_version: 1
+  phase: 0
+  taxonomy: data/taxonomy_catalog_baseline.xlsx
+modules:
+- id: idr_stress
+  version: 0.1.0
+  status: active
+  domain: IDR / rates / external-balance stress
+  target_sectors:
+  - G21
+  - H11
+  - A12
+  - D21
+  - K11
+  - I11
+  last_refresh: null
+  last_summary: null
+- id: coal
+  version: 0.1.0
+  status: active
+  domain: Thermal coal (export revenue + PLN cost)
+  target_sectors:
+  - A12
+  - J41
+  - D11
+  - K21
+  last_refresh: null
+  last_summary: null
+- id: global_rates
+  version: 0.0.0
+  status: planned
+  domain: Fed funds, UST 10y, real yield -> EM flows, discount rate
+  target_sectors:
+  - G21
+  - H11
+  - I11
+  last_refresh: null
+- id: domestic_macro
+  version: 0.0.0
+  status: planned
+  domain: GDP, CPI core/food, PMI mfg ID, consumer confidence, retail sales
+  target_sectors:
+  - D21
+  - E11
+  - G21
+  last_refresh: null
+- id: crude_oil
+  version: 0.0.0
+  status: planned
+  domain: Brent / WTI
+  target_sectors:
+  - A11
+  - K11
+  - B11
+  last_refresh: null
+- id: natural_gas_lng
+  version: 0.0.0
+  status: planned
+  domain: TTF / JKM / Henry Hub
+  target_sectors:
+  - J42
+  - B11
+  last_refresh: null
+- id: cpo
+  version: 0.0.0
+  status: planned
+  domain: CPO (Bursa Malaysia / Rotterdam)
+  target_sectors:
+  - D23
+  - D22
+  last_refresh: null
+- id: nickel
+  version: 0.0.0
+  status: planned
+  domain: LME nickel + HMA/HPM
+  target_sectors:
+  - B14
+  last_refresh: null
+- id: gold
+  version: 0.0.0
+  status: planned
+  domain: XAU (gold)
+  target_sectors:
+  - B14
+  last_refresh: null
+- id: copper_tin
+  version: 0.0.0
+  status: planned
+  domain: LME copper / tin
+  target_sectors:
+  - B14
+  last_refresh: null
+- id: cement_constr
+  version: 0.0.0
+  status: planned
+  domain: Domestic cement sales + material prices
+  target_sectors:
+  - D11
+  - J21
+  last_refresh: null
+- id: steel_iron
+  version: 0.0.0
+  status: planned
+  domain: Iron ore, HRC
+  target_sectors:
+  - B14
+  - J21
+  last_refresh: null
+- id: pulp_paper
+  version: 0.0.0
+  status: planned
+  domain: BHKP / pulp price
+  target_sectors:
+  - B15
+  - B13
+  last_refresh: null
+- id: soft_commods
+  version: 0.0.0
+  status: planned
+  domain: Sugar, wheat, soybean, corn, rubber
+  target_sectors:
+  - D21
+  - D22
+  - D23
+  - E11
+  last_refresh: null
+- id: freight
+  version: 0.0.0
+  status: planned
+  domain: Baltic Dry / container rates
+  target_sectors:
+  - K21
+  last_refresh: null
+- id: consumer_demand
+  version: 0.0.0
+  status: planned
+  domain: Vehicle sales, tourist arrivals, air passengers
+  target_sectors:
+  - E11
+  - E51
+  - K11
+  last_refresh: null
