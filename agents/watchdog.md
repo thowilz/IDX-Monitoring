@@ -11,16 +11,23 @@
      the last N attempts (default 3) probably has a broken or changed source;
    - **regime change** — a key indicator crossed into a different regime zone
      versus the previous stored reading.
-3. **Propose, never edit.** Write findings to `PENDING_REVISIONS.md` under a
-   dated heading. **Do NOT modify any `SPEC.md` or `fetch.py`.** Methodology
-   changes are human-gated (PRINSIP INTI #5).
+3. **Act per autonomy mode** (`registry.yaml -> system.revision_autonomy`):
+   - `human_gated` — write all findings to `PENDING_REVISIONS.md`, wait for a human.
+   - `low_risk` — auto-apply reversible source quarantines; queue judgment items
+     to `PENDING_REVISIONS.md`.
+   - `full` (current, ADR-008) — auto-apply reversible quarantines AND
+     auto-escalate judgment items to `ARCHITECT_QUEUE.md` (no human gate).
+   **In every mode the watchdog NEVER edits `SPEC.md`/`fetch.py` source.**
+   Mechanical fixes are reversible data overrides (`data/source_overrides.yaml`),
+   logged to `REVISIONS_APPLIED.md`.
 4. **Regenerate the dashboard** from the latest data.
 
 ## Hard rules
-- Never silently "fix" a spec or change a threshold. Propose it.
+- Auto-quarantine ONLY on a **structural** failure (payload/shape changed). A
+  network / HTTP / missing-key failure is transient — never disable a feed for it.
+- Never edit spec/fetcher source code; express fixes as reversible overrides.
 - Never backfill or guess a missing value to keep a chart pretty.
-- Keep proposals specific: which indicator, what changed, what to do, and the
-  fact that it awaits approval.
+- Keep findings specific: which indicator, what changed, what action was taken.
 
 ## Phase note
 Phase 0: a human runs `run_refresh.py [--review]` manually. Phase 1: the *same*

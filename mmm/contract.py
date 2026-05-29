@@ -60,15 +60,26 @@ class Module:
         raise KeyError(ind_id)
 
     # -- the one method the engine calls -----------------------------------
-    def run(self) -> List[Observation]:
+    def run(self, overrides: Optional[Dict[str, dict]] = None) -> List[Observation]:
+        overrides = overrides or {}
         out: List[Observation] = []
         for ind in self.indicators:
-            out.append(self._fetch_one(ind))
+            out.append(self._fetch_one(ind, overrides))
         return out
 
-    def _fetch_one(self, ind: Indicator) -> Observation:
+    def _fetch_one(self, ind: Indicator, overrides: Dict[str, dict]) -> Observation:
         now = utcnow_iso()
         fetcher = self.fetchers.get(ind.id)
+
+        # Autonomous, reversible override: a source the watchdog has quarantined
+        # reports UNKNOWN with the recorded reason — never a guessed value.
+        ov = overrides.get(f"{self.id}.{ind.id}")
+        if ov and ov.get("disabled"):
+            return Observation(
+                module=self.id, indicator=ind.id, ts=None, value=None,
+                unit=ind.unit, source=ind.url, fetched_at=now, status=UNKNOWN,
+                note=f"auto-disabled by watchdog: {ov.get('reason', 'no reason')}",
+            )
 
         if fetcher is None:
             # No free/authoritative source wired up (e.g. hard paywall, no proxy).

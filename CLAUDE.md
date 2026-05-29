@@ -21,8 +21,12 @@ guessed.
 3. **Verification-first / anti-hallucination.** No value without source +
    `fetched_at`. Failed fetch → `STALE`. Enforced in code (`mmm/observation.py`).
 4. **Modular + semver.** 1 module = 1 SPEC.md + 1 fetch.py + 1 registry entry.
-5. **Human-gated revisions.** Data refresh is automatic; *methodology/design*
-   changes are proposed to `PENDING_REVISIONS.md` and wait for human approval.
+5. **Revision autonomy (configurable).** `registry.yaml -> system.revision_autonomy`
+   = `human_gated` | `low_risk` | `full`. **Currently `full`** (ADR-008, overrides
+   the original human-gated principle per explicit user choice): the watchdog
+   auto-applies reversible source quarantines on *structural* failures only and
+   auto-escalates judgment items to `ARCHITECT_QUEUE.md`. It still never edits
+   SPEC/fetch source code, and never quarantines on a network/HTTP/key failure.
 6. **Lean-first.** Started with 2 reference modules (`idr_stress`, `coal`).
 
 ## Layout

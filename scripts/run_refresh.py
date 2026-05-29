@@ -28,7 +28,8 @@ from mmm.registry import load_registry, save_registry, active_modules, update_mo
 from mmm.store import TimeSeriesStore
 from mmm.taxonomy import load_taxonomy
 from mmm.render import build_render, assemble_module_payload
-from mmm.watchdog import review_module, write_pending
+from mmm.watchdog import process_review
+from mmm.overrides import load_overrides
 from mmm.observation import OK, STALE, UNKNOWN, SUSPECT, utcnow_iso
 
 STATUS_GLYPH = {OK: "OK   ", STALE: "STALE", UNKNOWN: "UNKWN", SUSPECT: "SUSPCT"}
@@ -51,6 +52,8 @@ def main() -> int:
     reg = load_registry(ROOT)
     store = TimeSeriesStore(ROOT)
     taxonomy = load_taxonomy(ROOT)
+    overrides = load_overrides(ROOT)
+    autonomy = (reg.get("system", {}) or {}).get("revision_autonomy", "human_gated")
 
     targets = active_modules(reg)
     if args.module:
@@ -75,7 +78,7 @@ def main() -> int:
         print(f"-- {mid} v{module.version} : {module.domain}")
 
         if not args.render_only:
-            observations = module.run()
+            observations = module.run(overrides=overrides)
             store.append(observations)
             counts = {}
             for o in observations:
@@ -94,11 +97,12 @@ def main() -> int:
             print(f"   regime[{s['indicator']}] -> {s['zone']}: {s['meaning']}")
 
         if args.review and not args.render_only:
-            proposals = review_module(store, module, latest, signals)
-            n = write_pending(ROOT, proposals)
-            total_pending += n
-            if n:
-                print(f"   watchdog: {n} revision proposal(s) -> PENDING_REVISIONS.md")
+            summ = process_review(ROOT, store, module, autonomy)
+            total_pending += summ["pending"]
+            if summ["total"]:
+                print(f"   watchdog[{autonomy}]: {summ['total']} finding(s) -> "
+                      f"applied={summ['applied']} architect={summ['architect']} "
+                      f"pending={summ['pending']}")
 
         payloads.append(assemble_module_payload(
             module, latest, signals, taxonomy, entry.get("last_refresh", "")))
@@ -110,8 +114,8 @@ def main() -> int:
     out = build_render(ROOT, payloads, taxonomy)
     print(f"== render written: {os.path.relpath(out, ROOT)} ==")
     if args.review:
-        print(f"== watchdog: {total_pending} pending proposal(s) "
-              f"(human approval required before any spec change) ==")
+        print(f"== watchdog autonomy={autonomy}: {total_pending} item(s) left for "
+              f"human approval (applied/escalated items are logged) ==")
     return 0
 
 

@@ -10,7 +10,12 @@ venv/
 
 # data: keep the dir + sample taxonomy, ignore generated time-series & render
 data/timeseries/*.csv
+data/source_overrides.yaml
 render/index.html
+
+# watchdog runtime logs (regenerated)
+REVISIONS_APPLIED.md
+ARCHITECT_QUEUE.md
 
 # os / editor
 .DS_Store

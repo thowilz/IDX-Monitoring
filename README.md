@@ -68,7 +68,15 @@ Phase 0**):
 Network blips on push: retry up to 4× with exponential backoff (2s, 4s, 8s, 16s).
 (Separate from the fast data-fetch retries in `mmm/http.py`.)
 
+## Revision autonomy
+Set in `registry.yaml -> system.revision_autonomy`: `human_gated` | `low_risk` |
+`full`. **Currently `full`** (ADR-008): on `--review` the watchdog auto-applies
+reversible source quarantines (only on *structural* source breakage, never a
+network/HTTP/key blip), logs them to `REVISIONS_APPLIED.md`, and auto-escalates
+judgment items (thresholds, transmission, new sources) to `ARCHITECT_QUEUE.md`.
+It never edits SPEC/fetcher source code. Set the value to `human_gated` to
+restore the propose-and-approve workflow via `PENDING_REVISIONS.md`.
+
 ## Known design debts
-Tracked in `PENDING_REVISIONS.md` (FRED series-id validation, the `api2_fut`
-candidate ticker, regime-threshold calibration, BI/ESDM scrapers). Methodology
-changes are **human-gated** — the watchdog proposes, you approve.
+Seeded in `PENDING_REVISIONS.md` (FRED series-id validation, the `api2_fut`
+candidate ticker, regime-threshold calibration, BI/ESDM scrapers).

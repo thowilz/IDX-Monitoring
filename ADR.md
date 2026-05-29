@@ -69,3 +69,25 @@ crontab line" — no code change.
    threshold/transmission/source-tier changes human-gated.
 **Consequences.** Build order set; sourcing seams kept paid-ready; watchdog stays
 human-gated until #4 is confirmed.
+
+## 2026-05-29 — ADR-008: Revision autonomy = FULL (overrides PRINSIP INTI #5)
+**Context.** The user was asked twice (the second time with the trade-off
+spelled out) and explicitly chose *fully autonomous* methodology revisions,
+overriding their own PRINSIP INTI #5 (human-gated).
+**Decision.** `registry.yaml -> system.revision_autonomy: full`. The watchdog no
+longer waits for human approval. BUT autonomy is bounded to what is *safe* for a
+non-LLM cron process:
+  * **Auto-applied** — only reversible, data-layer fixes via
+    `data/source_overrides.yaml` (e.g. quarantine a source), and **only on a
+    STRUCTURAL failure** (payload/shape changed). Network/HTTP/key failures are
+    treated as transient and never trigger a quarantine — otherwise a blocked
+    host would wrongly disable a healthy feed.
+  * **Auto-escalated** (no human gate) — judgment items (thresholds, transmission,
+    finding a new source) go to `ARCHITECT_QUEUE.md` for the architect agent.
+  * **Never** does the watchdog edit `SPEC.md`/`fetch.py` source directly — code
+    self-rewriting is unsafe and would itself break verification-first.
+**Consequences.** Faster iteration with no human checkpoint, as requested. The
+residual safety rail (structural-only auto-quarantine; logged + reversible
+overrides; LLM architect for judgment changes) prevents the autonomous mode from
+silently corrupting a healthy monitor. Modes `human_gated`/`low_risk` remain
+available by changing the one config value.

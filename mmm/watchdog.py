@@ -1,79 +1,144 @@
-"""Watchdog review pass (the ``--review`` path).
+"""Watchdog review pass (the ``--review`` path), with revision autonomy modes.
 
-Human-gated by design: this NEVER edits a module's SPEC.md or fetch.py. It
-inspects the freshly stored data + history and *proposes* methodology revisions
-by appending to ``PENDING_REVISIONS.md``. A human approves before any spec
-changes. Two kinds of findings:
+Autonomy is set in ``registry.yaml`` -> ``system.revision_autonomy``:
 
-  * source health — an indicator that is persistently STALE/UNKNOWN across the
-    last N attempts probably has a broken or changed source and the spec's
-    source tiering may need revisiting;
-  * regime change — a key indicator crossed into a different regime zone vs the
-    previous stored reading.
+  * ``human_gated`` — every finding is written to PENDING_REVISIONS.md and waits
+    for a human (the original PRINSIP INTI #5 default);
+  * ``low_risk``    — reversible mechanical fixes are auto-applied; judgment
+    items go to PENDING_REVISIONS.md;
+  * ``full``        — mechanical fixes auto-applied; judgment items auto-escalated
+    to ARCHITECT_QUEUE.md (no human gate) for the architect agent to action.
+
+Critical safety rule for autonomous action: we ONLY auto-quarantine a source on
+a **structural** failure (the payload/shape changed, or the source returned no
+usable value), NEVER on a network/HTTP/config failure (host blocked, timeout,
+missing API key). A transient outage must not cause the watchdog to disable a
+perfectly good feed — that would be the monitor corrupting itself.
+
+The watchdog still NEVER edits SPEC.md or fetch.py source. Mechanical actions
+are expressed as reversible data overrides (see mmm/overrides.py).
 """
 
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, List
 
 from .contract import Module
-from .observation import OK, STALE, UNKNOWN, SUSPECT
+from .observation import OK, STALE, UNKNOWN, SUSPECT, utcnow_iso
 from .store import TimeSeriesStore
+from .overrides import set_disabled
 
-PERSISTENT_FAIL_N = 3  # consecutive failed attempts before we flag the source
+PERSISTENT_FAIL_N = 3
+
+HUMAN_GATED = "human_gated"
+LOW_RISK = "low_risk"
+FULL = "full"
+
+# Substrings in a STALE note that indicate the SOURCE itself changed/broke
+# (safe to act on autonomously) vs an environmental failure (must NOT act on).
+_STRUCTURAL = ("shape changed", "no recent numeric", "only null", "no data", "empty csv")
+_ENVIRONMENTAL = ("http ", "get failed", "host_not_allowed", "timeout",
+                  "api_key not set", "connection")
 
 
-def _recent_statuses(store: TimeSeriesStore, module: str, indicator: str, n: int):
-    rows = [r for r in store.read_all(module) if r["indicator"] == indicator]
-    return [r["status"] for r in rows[-n:]]
+def _is_structural(note: str) -> bool:
+    n = (note or "").lower()
+    if any(e in n for e in _ENVIRONMENTAL):
+        return False
+    return any(s in n for s in _STRUCTURAL)
 
 
-def review_module(store: TimeSeriesStore, module: Module,
-                  latest: Dict[str, dict], signals: List[dict]) -> List[str]:
-    proposals: List[str] = []
+@dataclass
+class Finding:
+    module: str
+    indicator: str
+    kind: str          # source_structural | source_environmental | source_unknown | regime_change
+    auto_fixable: bool
+    message: str
+
+
+def detect(store: TimeSeriesStore, module: Module) -> List[Finding]:
+    findings: List[Finding] = []
+    rows_by_ind: Dict[str, List[dict]] = {}
+    for r in store.read_all(module.id):
+        rows_by_ind.setdefault(r["indicator"], []).append(r)
 
     # (a) source health
     for ind in module.indicators:
-        statuses = _recent_statuses(store, module.id, ind.id, PERSISTENT_FAIL_N)
-        if len(statuses) >= PERSISTENT_FAIL_N and all(
-            s in (STALE, UNKNOWN, SUSPECT) for s in statuses
-        ):
-            proposals.append(
-                f"- **[{module.id}] source-health · `{ind.id}`** — last "
-                f"{len(statuses)} attempts were {statuses}. Source "
-                f"`{ind.url}` ({ind.authority}/{ind.access}) may be broken or "
-                f"changed. *Proposal:* re-validate the source tiering / find a "
-                f"better free proxy; update SPEC §4. **(awaiting approval)**"
-            )
+        recent = rows_by_ind.get(ind.id, [])[-PERSISTENT_FAIL_N:]
+        if len(recent) < PERSISTENT_FAIL_N:
+            continue
+        if not all(r["status"] in (STALE, UNKNOWN, SUSPECT) for r in recent):
+            continue
+        last_note = recent[-1].get("note", "")
+        wired = module.fetchers.get(ind.id) is not None
+        if wired and _is_structural(last_note):
+            findings.append(Finding(
+                module.id, ind.id, "source_structural", True,
+                f"`{ind.id}` source looks STRUCTURALLY broken (last: {last_note}). "
+                f"Auto-quarantine the dead feed; architect to wire a replacement."))
+        elif wired:
+            findings.append(Finding(
+                module.id, ind.id, "source_environmental", False,
+                f"`{ind.id}` failing {len(recent)}x but reason looks environmental "
+                f"(network/HTTP/key): {last_note}. NOT auto-disabling — likely transient."))
+        else:
+            findings.append(Finding(
+                module.id, ind.id, "source_unknown", False,
+                f"`{ind.id}` persistently UNKNOWN (no free source wired). Architect "
+                f"to find a free proxy or approve manual entry."))
 
-    # (b) regime change vs previous reading
-    history: Dict[str, List[dict]] = {}
-    for r in store.read_all(module.id):
-        history.setdefault(r["indicator"], []).append(r)
+    # (b) regime change
     for ind_id, rule in module.regime.items():
-        rows = [r for r in history.get(ind_id, []) if r["status"] == OK and r["value"] not in ("", None)]
-        if len(rows) >= 2:
-            prev_zone = rule(float(rows[-2]["value"]))[0]
-            cur_zone = rule(float(rows[-1]["value"]))[0]
+        ok_rows = [r for r in rows_by_ind.get(ind_id, [])
+                   if r["status"] == OK and r["value"] not in ("", None)]
+        if len(ok_rows) >= 2:
+            prev_zone = rule(float(ok_rows[-2]["value"]))[0]
+            cur_zone = rule(float(ok_rows[-1]["value"]))[0]
             if prev_zone != cur_zone:
-                proposals.append(
-                    f"- **[{module.id}] regime-change · `{ind_id}`** — moved "
-                    f"`{prev_zone}` → `{cur_zone}` ({rows[-2]['value']} → "
-                    f"{rows[-1]['value']} {ind_id}). *Proposal:* confirm the "
-                    f"threshold zones in SPEC §6 still describe reality; review "
-                    f"transmission impact. **(awaiting approval)**"
-                )
-    return proposals
+                findings.append(Finding(
+                    module.id, ind_id, "regime_change", False,
+                    f"`{ind_id}` moved `{prev_zone}`->`{cur_zone}` "
+                    f"({ok_rows[-2]['value']}->{ok_rows[-1]['value']}). Confirm SPEC "
+                    f"§6 zones still describe reality; review transmission impact."))
+    return findings
 
 
-def write_pending(root: str, proposals: List[str]) -> int:
-    if not proposals:
-        return 0
-    path = os.path.join(root, "PENDING_REVISIONS.md")
+def _append(root: str, filename: str, heading: str, lines: List[str]) -> None:
+    if not lines:
+        return
     stamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    block = f"\n## Watchdog review {stamp}Z\n\n" + "\n".join(proposals) + "\n"
-    with open(path, "a") as fh:
+    block = f"\n## {heading} {stamp}Z\n\n" + "\n".join(lines) + "\n"
+    with open(os.path.join(root, filename), "a") as fh:
         fh.write(block)
-    return len(proposals)
+
+
+def process_review(root: str, store: TimeSeriesStore, module: Module,
+                   autonomy: str) -> dict:
+    """Apply/queue findings according to the autonomy mode. Returns a summary."""
+    findings = detect(store, module)
+    applied, queued_pending, queued_architect = [], [], []
+
+    for f in findings:
+        line = f"- **[{f.module}] {f.kind} · `{f.indicator}`** — {f.message}"
+
+        if f.auto_fixable and autonomy in (LOW_RISK, FULL):
+            wrote = set_disabled(root, f.module, f.indicator,
+                                 reason=f"watchdog auto-quarantine: {f.message}",
+                                 applied_at=utcnow_iso())
+            applied.append(line + (" **(auto-applied: source quarantined)**"
+                                   if wrote else " (already quarantined)"))
+        elif autonomy == FULL:
+            queued_architect.append(line + " **(auto-escalated to architect agent)**")
+        else:  # human_gated, or low_risk judgment items
+            queued_pending.append(line + " **(awaiting approval)**")
+
+    _append(root, "REVISIONS_APPLIED.md", f"[{module.id}] auto-applied", applied)
+    _append(root, "ARCHITECT_QUEUE.md", f"[{module.id}] auto-escalated", queued_architect)
+    _append(root, "PENDING_REVISIONS.md", f"Watchdog review [{module.id}]", queued_pending)
+
+    return {"applied": len(applied), "architect": len(queued_architect),
+            "pending": len(queued_pending), "total": len(findings)}

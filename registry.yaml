@@ -3,6 +3,7 @@ system:
   schema_version: 1
   phase: 0
   taxonomy: data/taxonomy_catalog_baseline.xlsx
+  revision_autonomy: full
 modules:
 - id: idr_stress
   version: 0.1.0
