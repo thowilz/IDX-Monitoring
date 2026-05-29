@@ -39,6 +39,28 @@ def _age(fetched_at: str):
     return (datetime.now(timezone.utc) - dt).total_seconds()
 
 
+def _fmt_value(raw):
+    """Display values without false precision (PRINSIP INTI #6).
+
+    Round to a sensible number of significant places and strip trailing zeros,
+    so 99.02400207519531 -> "99.02" and 17878.0 -> "17,878". Non-numeric or
+    empty values pass through unchanged.
+    """
+    if raw in ("", None):
+        return raw
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return raw
+    av = abs(v)
+    if av >= 1000:
+        return f"{v:,.0f}"          # FX rates, reserves, big indices
+    elif av >= 100:
+        return f"{v:,.1f}".rstrip("0").rstrip(".")
+    else:
+        return f"{v:,.2f}".rstrip("0").rstrip(".")  # yields, DXY, small marks
+
+
 def _fmt_age(sec):
     if sec is None:
         return "—"
@@ -163,7 +185,7 @@ def assemble_module_payload(module: Module, latest: Dict[str, dict],
             "label": ind.label,
             "classification": ind.classification,
             "cls_css": _CLS_CSS.get(ind.classification, ""),
-            "value": row.get("value", ""),
+            "value": _fmt_value(row.get("value", "")),
             "unit": ind.unit,
             "ts": row.get("ts", ""),
             "age": _fmt_age(age_sec),
