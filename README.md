@@ -33,6 +33,12 @@ Load `.env` before running (e.g. `set -a; source .env; set +a`, or use
 `direnv`/`python-dotenv` in your shell).
 
 ## Run (Phase 0 — manual)
+**macOS / Linux one-liner** (handles venv + deps + `.env` + opens the dashboard):
+```bash
+./run.sh            # refresh + build + open render/index.html
+./run.sh --review   # also run the watchdog
+```
+Or run the steps manually:
 ```bash
 python scripts/run_refresh.py            # refresh active modules + rebuild render/index.html
 python scripts/run_refresh.py --review   # also run the watchdog methodology review
