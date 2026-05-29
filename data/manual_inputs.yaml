@@ -1,0 +1,37 @@
+# Manual-input channel — human-entered values WITH provenance.
+# Each entry MUST carry value + ts + source (PRINSIP INTI #3). Refresh these
+# yourself (e.g. weekly) the same way you'd refresh the artifact's inputs.
+# Indicators with no entry here AND no free fetcher stay UNKNOWN (not guessed).
+#
+# Seed values below are carried over from the user's "IDR Stress Monitor"
+# artifact — update them with fresh marks before relying on the composite.
+
+idr_stress:
+  usd_rate:
+    value: 4.50
+    ts: "2026-05-28"
+    source: "global-rates.com (USD 1m funding)"
+    note: "seed from artifact — refresh me"
+  fwd_1m:
+    value: 42
+    ts: "2026-05-28"
+    source: "interbank onshore 1M forward points (BI/Refinitiv)"
+    note: "seed from artifact — refresh me"
+  cds5y:
+    value: 90.48
+    ts: "2026-05-28"
+    source: "worldgovernmentbonds.com/cds/indonesia/5-years"
+    note: "EOD; seed from artifact"
+  cds_var1m:
+    value: 1.53
+    ts: "2026-05-28"
+    source: "worldgovernmentbonds.com (1m change)"
+    note: "positive = widening (risk building)"
+  cds_var6m:
+    value: 23.20
+    ts: "2026-05-28"
+    source: "worldgovernmentbonds.com (6m change)"
+    note: "positive = structurally wider over 6m"
+  # ndf1m: offshore NDF points — leave blank until you have a FactSet mark.
+  #   Without it the NDF basis (speculative thermometer) is correctly NOT computed.
+  # ndf1m: {value: , ts: "", source: "FactSet"}

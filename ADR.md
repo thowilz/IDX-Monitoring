@@ -91,3 +91,28 @@ residual safety rail (structural-only auto-quarantine; logged + reversible
 overrides; LLM architect for judgment changes) prevents the autonomous mode from
 silently corrupting a healthy monitor. Modes `human_gated`/`low_risk` remain
 available by changing the one config value.
+
+## 2026-05-29 — ADR-009: v0.2 standard analytics layer for every MMM
+**Context.** A user-built single-domain artifact (IDR Stress Monitor) encoded
+deep analytics — implied PD, NDF basis, a weighted composite score, and a signal
+hierarchy — that the lean v0.1 modules lacked. The user asked to make that depth
+the STANDARD for every module (not just one), while keeping live data +
+provenance + anti-hallucination.
+**Decision.** Extend the engine generically and raise the methodology template
+to 12 sections. Every MMM now provides:
+  * **manual-input channel** (`data/manual_inputs.yaml`) — paywalled/PDF inputs
+    entered by a human WITH `value + ts + source`, so provenance holds (PRINSIP
+    INTI #3); absent inputs stay UNKNOWN, never guessed;
+  * **derived metrics** (`DerivedMetric`) computed from indicators; missing input
+    → metric UNKNOWN;
+  * **composite score → verdict** (`Module.composite`) with stated weights;
+  * **signal hierarchy** (`Module.signal_hierarchy`) — the reversal/confirmation
+    ladder + false-signal caveat.
+`idr_stress` v0.2.0 is the reference (artifact analytics ported faithfully:
+±7 composite matches the artifact's verdict). `coal` v0.2.0 carries a ±4
+proxy-based composite + hierarchy.
+**Consequences.** Modules are now as analytically deep as the artifact AND
+automated AND honest about data lineage. Composite weights/thresholds are
+PROVISIONAL (carried in PENDING_REVISIONS) until calibrated. The manual channel
+deliberately accepts human numbers, but only with a source + timestamp — it is
+NOT a hole in the anti-hallucination rule.

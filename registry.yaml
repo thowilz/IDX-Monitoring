@@ -6,7 +6,7 @@ system:
   revision_autonomy: full
 modules:
 - id: idr_stress
-  version: 0.1.0
+  version: 0.2.0
   status: active
   domain: IDR / rates / external-balance stress
   target_sectors:
@@ -19,7 +19,7 @@ modules:
   last_refresh: null
   last_summary: null
 - id: coal
-  version: 0.1.0
+  version: 0.2.0
   status: active
   domain: Thermal coal (export revenue + PLN cost)
   target_sectors:

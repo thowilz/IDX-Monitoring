@@ -83,6 +83,37 @@ PENDING item and the redteam flagged it (blocker downgraded to condition).
   "months of imports" — don't conflate.
 - Cross-source: when a second USD/IDR feed is added, require agreement within 5%.
 
+## 7b. Manual-input channel
+Paywalled/PDF inputs are entered in `data/manual_inputs.yaml` with `value + ts +
+source`: `cds5y`, `cds_var1m`, `cds_var6m`, `fwd_1m` (onshore forward points),
+`ndf1m` (offshore NDF points), `usd_rate`, `bi_rate`, `current_account`. Each is
+shown with `access=manual` + its source; absent entries stay UNKNOWN.
+
+## 7c. Derived metrics (computed, not fetched)
+- **implied_pd** = CDS / 10000 / (1 − 0.4 recovery) × 100  → needs `cds5y`.
+- **fwd_outright_1m** = spot + onshore 1M points → needs `usdidr`, `fwd_1m`.
+- **implied_funding_1m** = USD rate + (points/spot)×12×100 → `usd_rate`,`fwd_1m`,`usdidr`.
+- **ndf_basis_1m** = offshore − onshore (1M points) → needs `ndf1m`, `fwd_1m`.
+  *The speculative-pressure thermometer.* Also annualised to **ndf_basis_1m_bps**.
+
+## 7d. Composite score & verdict (±7, PROVISIONAL)
+Ported from the user's IDR Stress Monitor artifact:
+| Component | Rule | Weight |
+|-----------|------|--------|
+| CDS Var 1m (momentum) | <0 → +2, else −2 | ×2 |
+| CDS Var 6m (structural) | <0 → +1, else −1 | ×1 |
+| NDF basis 1M | ≤0 → +2, >50pts → −2, else 0 | ×2 |
+| Spot momentum vs last | strengthen → +1, weaken → −1 | ×1 |
+| Forward points vs last | narrow → +1, widen → −1 | ×1 |
+
+Verdict: ≥3 **EASING** · ≥1 **MIXED↑** · ≥−1 **MIXED↓** · else **STRESS**.
+
+## 7e. Signal hierarchy (reversal sequence)
+DXY softens → CDS Var 1m turns negative → NDF basis narrows → foreign flow
+returns → reserves stop falling → THEN USD/IDR strengthens & holds. **Caveat:**
+if spot strengthens but CDS Var & basis have *not* turned, treat as technical
+bounce / intervention — not a reversal.
+
 ## 8. Limitations
 - BI-Rate, current account and 1m NDF are not auto-fetched in Fase 0 → `UNKNOWN`.
 - `sbn10y`/`reserves` are OECD/IMF **monthly proxies**, not the intraday IBPA
@@ -93,5 +124,11 @@ PENDING item and the redteam flagged it (blocker downgraded to condition).
 - Regime zones are provisional, not calibrated.
 
 ## 9. Changelog
+- **v0.2.0 (2026-05-29)** — adopted v0.2 standard analytics (ADR-009): manual-input
+  channel (CDS/NDF/forward/USD-rate/BI-rate), 5 derived metrics (implied PD, NDF
+  basis pts+bps, forward outright, implied funding), ±7 composite score → verdict,
+  and the signal hierarchy — all ported from the user's IDR Stress Monitor artifact
+  but with provenance on every input. Added `usd_rate`, `fwd_1m`, `cds_var1m`,
+  `cds_var6m`; `ndf1m` redefined as offshore points.
 - **v0.1.0 (2026-05-29)** — initial module: 9 indicators (2 free-wired, 2 FRED
   proxies, 5 UNKNOWN), transmission map (6 industries), provisional regimes.

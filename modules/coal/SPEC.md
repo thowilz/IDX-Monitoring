@@ -72,6 +72,27 @@ and uncalibrated — must not drive a signal until calibrated.
 - When ICI/HBA are wired, cross-check HBA against a trailing average of the spot
   indices (HBA is derived from them).
 
+## 7b. Manual-input channel
+ICI/API5/HBA are paywall/PDF — enter them in `data/manual_inputs.yaml` (value +
+ts + source) when you have marks; otherwise UNKNOWN. No derived metrics are
+defined yet (real coal prices are mostly UNKNOWN in Fase 0).
+
+## 7c. Composite score & verdict (±4, PROXY-based, PROVISIONAL)
+A "coal-miner tailwind" read built from PROXIES (real coal price is UNKNOWN):
+| Component | Rule | Weight |
+|-----------|------|--------|
+| Coal price momentum (api2 proxy) vs last | up → +2, down → −2 | ×2 |
+| Miner-equity breadth (PTBA/ADRO/ITMG ↑ vs ↓) | net, capped ±2 | ×1 |
+
+Verdict: ≥2 **MINER TAILWIND** · ≥0 **NEUTRAL** · else **MINER HEADWIND**.
+Explicitly proxy-based — equity proxies ≠ coal price.
+
+## 7d. Signal hierarchy
+API2/Newcastle futures turn (leading) → ICI/API5 spot follow (coincident) →
+official HBA confirms ~2 weeks later (lagging, twice-monthly since Mar-2025) →
+miner equities re-rate (royalty/PNBP scales with HBA). **Caveat:** equity proxies
+also move on beta, DMO policy and company specifics — not coal price alone.
+
 ## 8. Limitations
 - ICI, API5 and the official HBA are paywalled/PDF-only → `UNKNOWN` in Fase 0;
   no estimate is substituted.
@@ -83,6 +104,9 @@ and uncalibrated — must not drive a signal until calibrated.
 - Regime thresholds are provisional and proxy-based.
 
 ## 9. Changelog
+- **v0.2.0 (2026-05-29)** — adopted v0.2 standard (ADR-009): ±4 proxy-based
+  "miner tailwind" composite + signal hierarchy. Manual channel available for
+  ICI/API5/HBA. No derived metrics yet (coal prices mostly UNKNOWN in Fase 0).
 - **v0.1.0 (2026-05-29)** — initial module: 7 indicators (3 equity proxies wired,
   1 candidate future proxy, 3 paywalled UNKNOWN), transmission map (4 industries),
   provisional proxy-based regime. Captures the Mar-2025 HBA regulatory change.

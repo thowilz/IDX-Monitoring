@@ -30,6 +30,7 @@ from mmm.taxonomy import load_taxonomy
 from mmm.render import build_render, assemble_module_payload
 from mmm.watchdog import process_review
 from mmm.overrides import load_overrides
+from mmm.manual import load_manual
 from mmm.observation import OK, STALE, UNKNOWN, SUSPECT, utcnow_iso
 
 STATUS_GLYPH = {OK: "OK   ", STALE: "STALE", UNKNOWN: "UNKWN", SUSPECT: "SUSPCT"}
@@ -53,6 +54,7 @@ def main() -> int:
     store = TimeSeriesStore(ROOT)
     taxonomy = load_taxonomy(ROOT)
     overrides = load_overrides(ROOT)
+    manual = load_manual(ROOT)
     autonomy = (reg.get("system", {}) or {}).get("revision_autonomy", "human_gated")
 
     targets = active_modules(reg)
@@ -78,7 +80,8 @@ def main() -> int:
         print(f"-- {mid} v{module.version} : {module.domain}")
 
         if not args.render_only:
-            observations = module.run(overrides=overrides)
+            mod_manual = manual.get(mid, {})
+            observations = module.run(overrides=overrides, manual=mod_manual)
             store.append(observations)
             counts = {}
             for o in observations:
@@ -87,14 +90,27 @@ def main() -> int:
                 print(f"   [{STATUS_GLYPH.get(o.status, o.status):6}] "
                       f"{o.indicator:16} {str(val):>14} {o.unit:8} "
                       f"{('· ' + o.note) if o.note and o.status != OK else ''}")
+            # derived metrics computed from the freshly stored base values
+            derived_obs = module.compute_derived(store.latest_per_indicator(mid))
+            if derived_obs:
+                store.append(derived_obs)
+                for o in derived_obs:
+                    val = "" if o.value is None else o.value
+                    print(f"   [{STATUS_GLYPH.get(o.status, o.status):6}] "
+                          f"{o.indicator:16} {str(val):>14} {o.unit:8} (derived)")
             summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
             update_module(reg, mid, last_refresh=utcnow_iso(), last_summary=summary)
             print(f"   summary: {summary}")
 
         latest = store.latest_per_indicator(mid)
+        prev = store.previous_ok_per_indicator(mid)
         signals = module.evaluate_regime(latest)
         for s in signals:
             print(f"   regime[{s['indicator']}] -> {s['zone']}: {s['meaning']}")
+        composite = module.evaluate_composite(latest, prev)
+        if composite:
+            print(f"   COMPOSITE: {composite['verdict']} "
+                  f"(score {composite['score']:+d}/±{composite['max']}) — {composite['subtitle']}")
 
         if args.review and not args.render_only:
             summ = process_review(ROOT, store, module, autonomy)
@@ -105,7 +121,8 @@ def main() -> int:
                       f"pending={summ['pending']}")
 
         payloads.append(assemble_module_payload(
-            module, latest, signals, taxonomy, entry.get("last_refresh", "")))
+            module, latest, signals, taxonomy, entry.get("last_refresh", ""),
+            composite=composite))
         print()
 
     if not args.render_only:

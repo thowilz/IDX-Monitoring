@@ -34,8 +34,23 @@ reference price** (Permen ESDM). Assume your training data is stale; confirm.
    points. State the basis; if uncalibrated, say so and add a PENDING item.
 7. **Verification protocol.** Cross-source checks, sanity bounds, unit-mismatch
    detection (remember the NPL/NPF percent-vs-decimal trap — never assume units).
-8. **Limitations.** What this module explicitly CANNOT see.
-9. **Changelog.**
+8. **Manual-input channel.** Which indicators have no free feed and are sourced
+   via `data/manual_inputs.yaml` (value + ts + source — provenance preserved).
+   Anything not fetchable and not manually entered stays UNKNOWN, never guessed.
+9. **Derived metrics.** Metrics COMPUTED from the indicators (e.g. implied PD
+   from CDS, NDF basis = offshore−onshore annualised, forward outright/funding).
+   State the formula + which inputs each needs. Missing input → metric UNKNOWN.
+10. **Composite score & verdict.** A weighted score over the key signals →
+    a regime verdict. State each component's weight and the verdict thresholds.
+    Weights are PROVISIONAL until calibrated (open a PENDING item).
+11. **Signal hierarchy.** The ordered reversal/confirmation sequence to read
+    (what leads, what confirms), plus the "false signal" caveat (e.g. a price
+    bounce with no risk-premium turn = technical/intervention, not a reversal).
+12. **Limitations** + **Changelog.**
+
+These last items (8–11) are the v0.2 standard — every MMM must provide a manual
+channel for paywalled inputs, derived metrics where they add signal, a composite
+verdict, and a signal hierarchy. See `modules/idr_stress` as the reference.
 
 ## Procedure
 1. Search to confirm current methodology, units, and source availability.

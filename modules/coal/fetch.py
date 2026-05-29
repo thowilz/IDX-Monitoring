@@ -104,6 +104,51 @@ def _api2_zone(v):
 
 REGIME = {"api2_fut": _api2_zone}
 
+# Composite = "coal-miner tailwind", PROXY-based (real coal price is UNKNOWN in
+# Fase 0). Reads coal-price momentum + how broadly the miner equities are rising.
+def _composite(values, prev):
+    score = 0
+    comps = []
+
+    def add(label, contrib, cls):
+        comps.append({"label": label, "contribution": contrib, "cls": cls})
+
+    if "api2_fut" in values and "api2_fut" in prev:
+        s = 2 if values["api2_fut"] > prev["api2_fut"] else (-2 if values["api2_fut"] < prev["api2_fut"] else 0)
+        score += s; add("Coal price momentum ×2 (proxy)", f"{s:+d}", "pos" if s > 0 else ("neg" if s < 0 else "neu"))
+    else:
+        add("Coal price momentum ×2", "n/a (need history)", "neu")
+
+    proxies = ["ptba_px", "adro_px", "itmg_px"]
+    rising = [p for p in proxies if p in values and p in prev and values[p] > prev[p]]
+    falling = [p for p in proxies if p in values and p in prev and values[p] < prev[p]]
+    if rising or falling:
+        net = len(rising) - len(falling)
+        s = max(-2, min(2, net))
+        score += s
+        add(f"Miner-equity breadth ({len(rising)}↑/{len(falling)}↓)", f"{s:+d}",
+            "pos" if s > 0 else ("neg" if s < 0 else "neu"))
+    else:
+        add("Miner-equity breadth", "n/a (need history)", "neu")
+
+    if score >= 2:
+        verdict, vclass, sub = "MINER TAILWIND", "pos", "Coal sentiment improving (proxy-based)."
+    elif score >= 0:
+        verdict, vclass, sub = "NEUTRAL", "neu", "No clear coal-sentiment direction (proxy-based)."
+    else:
+        verdict, vclass, sub = "MINER HEADWIND", "neg", "Coal sentiment softening (proxy-based)."
+
+    return {"score": score, "max": 4, "verdict": verdict, "verdict_class": vclass,
+            "subtitle": sub + " NB: equity proxies ≠ coal price.", "components": comps}
+
+SIGNAL_HIERARCHY = [
+    "API2/Newcastle futures turn (LEADING — forward expectations)",
+    "ICI / API5 spot indices follow (COINCIDENT — transacted grades)",
+    "Official HBA confirms ~2 weeks later (LAGGING — twice-monthly since Mar-2025)",
+    "Miner equities (PTBA/ADRO/ITMG) re-rate; royalty/PNBP scales with HBA",
+    "⚠ Equity proxies ≠ coal price — equity beta, DMO policy & company specifics also move them",
+]
+
 LIMITATIONS = [
     "The authoritative coal price marks (ICI, API5, API2 index, official HBA) are "
     "PAYWALLED or PDF-only — in Fase 0 they are UNKNOWN, not estimated.",
@@ -118,7 +163,8 @@ LIMITATIONS = [
 ]
 
 MODULE = Module(
-    id="coal", version="0.1.0", domain="Thermal coal (export revenue + PLN cost)",
+    id="coal", version="0.2.0", domain="Thermal coal (export revenue + PLN cost)",
     indicators=INDICATORS, fetchers=FETCHERS, transmission=TRANSMISSION,
     regime=REGIME, limitations=LIMITATIONS,
+    composite=_composite, signal_hierarchy=SIGNAL_HIERARCHY,
 )

@@ -15,9 +15,11 @@ guessed.
 ## Core principles (do not violate)
 1. **Framework > dashboard.** Unit of work = one Macro Monitoring Module (MMM)
    for one domain. The system = registry of MMMs + shared methodology + agents.
-2. **Uniform methodology.** Every MMM follows the same 9-section spec template
-   (see `agents/architect.md`). Cross-module consistency beats single-module
-   completeness.
+2. **Uniform methodology (v0.2, 12-section template).** Every MMM follows the
+   same spec (see `agents/architect.md`) AND provides the standard analytics
+   layer: a manual-input channel for paywalled inputs, derived metrics, a
+   weighted composite score → verdict, and a signal hierarchy. Cross-module
+   consistency beats single-module completeness.
 3. **Verification-first / anti-hallucination.** No value without source +
    `fetched_at`. Failed fetch → `STALE`. Enforced in code (`mmm/observation.py`).
 4. **Modular + semver.** 1 module = 1 SPEC.md + 1 fetch.py + 1 registry entry.

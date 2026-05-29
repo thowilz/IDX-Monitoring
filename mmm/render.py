@@ -94,6 +94,22 @@ _TEMPLATE = """<!doctype html>
  details{padding:8px 16px;border-bottom:1px solid #20242e} summary{cursor:pointer;color:#9aa0aa;font-size:12px}
  .trans td{font-size:12px} .lim li{color:#c7ccd6;font-size:12px;margin:3px 0} .foot{color:#6b7280;font-size:11px;padding:16px 24px}
  code{background:#20242e;padding:1px 5px;border-radius:4px;font-size:12px}
+ .composite{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+   padding:14px 16px;border-bottom:1px solid #262b36;background:#12161f}
+ .composite .verdict{font-size:22px;font-weight:800;letter-spacing:-.01em}
+ .composite .vsub{color:#9aa0aa;font-size:12px;margin-top:2px}
+ .composite .score{font-family:ui-monospace,monospace;font-size:13px;color:#9aa0aa}
+ .composite .score b{font-size:26px;color:#fff}
+ .vpos{color:#5fe08a} .vneg{color:#ff8a8a} .vneu{color:#ffae5f}
+ .comps{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;border-bottom:1px solid #20242e}
+ .cchip{font-size:11.5px;padding:3px 9px;border-radius:8px;background:#20242e;color:#c7ccd6}
+ .cchip b{margin-left:6px} .pos{color:#5fe08a} .neg{color:#ff8a8a} .neu{color:#ffae5f}
+ .ladder{counter-reset:step;list-style:none;padding:6px 16px 12px}
+ .ladder li{font-size:12.5px;color:#c7ccd6;margin:5px 0;padding-left:26px;position:relative}
+ .ladder li::before{counter-increment:step;content:counter(step);position:absolute;left:0;top:0;
+   width:18px;height:18px;border-radius:50%;background:#22263a;color:#9fb4ff;font-size:11px;
+   text-align:center;line-height:18px;font-weight:700}
+ .ladder li.warn{color:#ffae5f} .ladder li.warn::before{content:"!";background:#3a2410;color:#ffae5f}
 </style></head><body>
 <header><h1>IHSG Macro Monitoring System</h1>
 <div class="sub">Generated {{ generated_at }} UTC · {{ modules|length }} active module(s) ·
@@ -104,6 +120,19 @@ taxonomy: <code>{{ taxonomy_source }}</code> · <b>not investment advice — eng
  <div class="mod">
   <div class="mhead"><h2>{{ m.domain }} <span class="ver">{{ m.id }} v{{ m.version }}</span></h2>
    <span class="ver">last refresh: {{ m.last_refresh }}</span></div>
+
+  {% if m.composite %}
+   <div class="composite">
+    <div><div class="verdict v{{ m.composite.verdict_class }}">{{ m.composite.verdict }}</div>
+      <div class="vsub">{{ m.composite.subtitle }}</div></div>
+    <div class="score">score <b class="v{{ m.composite.verdict_class }}">{{ '%+d'|format(m.composite.score) }}</b> / ±{{ m.composite.max }}</div>
+   </div>
+   <div class="comps">
+    {% for c in m.composite.components %}
+     <span class="cchip">{{ c.label }}<b class="{{ c.cls }}">{{ c.contribution }}</b></span>
+    {% endfor %}
+   </div>
+  {% endif %}
 
   {% for s in m.signals %}
    <div class="sig">Regime · <b>{{ s.indicator }}</b>:
@@ -129,6 +158,25 @@ taxonomy: <code>{{ taxonomy_source }}</code> · <b>not investment advice — eng
    </tr>
   {% endfor %}
   </tbody></table>
+
+  {% if m.derived %}
+  <details open><summary>Derived metrics ({{ m.derived|length }}) — computed, not fetched</summary>
+   <table><thead><tr><th>Metric</th><th>Class</th><th>Value</th><th>Status</th><th>Basis</th></tr></thead><tbody>
+   {% for d in m.derived %}
+    <tr><td>{{ d.label }}</td><td class="{{ d.cls_css }}">{{ d.classification }}</td>
+        <td class="val">{% if d.value != '' and d.value is not none %}{{ d.value }} <span class="ver">{{ d.unit }}</span>{% else %}—{% endif %}</td>
+        <td><span class="badge {{ d.status_css }}">{{ d.status }}</span></td>
+        <td class="ver">{{ d.note }}</td></tr>
+   {% endfor %}
+   </tbody></table></details>
+  {% endif %}
+
+  {% if m.signal_hierarchy %}
+  <details><summary>Signal hierarchy — the reversal/confirmation sequence to read</summary>
+   <ol class="ladder">{% for step in m.signal_hierarchy %}
+     <li class="{{ 'warn' if step.startswith('⚠') }}">{{ step.lstrip('⚠ ') }}</li>
+   {% endfor %}</ol></details>
+  {% endif %}
 
   <details><summary>Transmission map → IHSG sectors ({{ m.transmission|length }})</summary>
    <table class="trans"><thead><tr><th>Industri</th><th>Sektor</th><th>Arah</th>
@@ -172,7 +220,8 @@ def build_render(root: str, modules_payload: List[dict], taxonomy) -> str:
 
 
 def assemble_module_payload(module: Module, latest: Dict[str, dict],
-                            signals: List[dict], taxonomy, last_refresh: str) -> dict:
+                            signals: List[dict], taxonomy, last_refresh: str,
+                            composite: dict = None) -> dict:
     rows = []
     for ind in module.indicators:
         row = latest.get(ind.id, {})
@@ -199,6 +248,21 @@ def assemble_module_payload(module: Module, latest: Dict[str, dict],
             "is_proxy": ind.is_proxy,
             "note": row.get("note", "") or ind.note,
         })
+    # derived metrics (computed, not fetched)
+    derived = []
+    for dm in getattr(module, "derived", []):
+        row = latest.get(dm.id, {})
+        status = row.get("status", "UNKNOWN")
+        derived.append({
+            "label": dm.label,
+            "classification": dm.classification,
+            "cls_css": _CLS_CSS.get(dm.classification, ""),
+            "value": _fmt_value(row.get("value", "")),
+            "unit": dm.unit,
+            "status": status,
+            "status_css": _STATUS_CSS.get(status, "unknown"),
+            "note": row.get("note", "") or dm.note,
+        })
     transmission = []
     for t in module.transmission:
         transmission.append({
@@ -210,4 +274,6 @@ def assemble_module_payload(module: Module, latest: Dict[str, dict],
         "id": module.id, "version": module.version, "domain": module.domain,
         "rows": rows, "signals": signals, "transmission": transmission,
         "limitations": module.limitations, "last_refresh": last_refresh or "—",
+        "derived": derived, "composite": composite,
+        "signal_hierarchy": getattr(module, "signal_hierarchy", []),
     }

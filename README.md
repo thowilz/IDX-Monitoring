@@ -57,6 +57,14 @@ Two fully-built reference modules demonstrating the methodology:
 
 All other domains in `registry.yaml` are `planned` and built incrementally.
 
+**Standard analytics layer (v0.2).** Every module also provides: a **manual-input
+channel** (`data/manual_inputs.yaml`) for paywalled inputs — entered with
+`value + ts + source` so provenance holds; **derived metrics** (e.g. implied PD,
+NDF basis); a weighted **composite score → verdict**; and a **signal hierarchy**.
+`idr_stress`'s composite/PD/basis methodology is ported from a hand-built IDR
+Stress Monitor, now driven by live + provenance-tracked manual inputs. Composite
+weights & thresholds are **provisional** until calibrated (`PENDING_REVISIONS.md`).
+
 ## Phase 1 — VPS + cron (later, drop-in; **do not enable yet**)
 The system is already structured for this: relative paths, venv, `.env`,
 idempotent entrypoint. To migrate: clone, create the venv, set `.env`, then add

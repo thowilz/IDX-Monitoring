@@ -55,3 +55,16 @@ class TimeSeriesStore:
             if cur is None or row["fetched_at"] >= cur["fetched_at"]:
                 latest[ind] = row
         return latest
+
+    def previous_ok_per_indicator(self, module: str) -> Dict[str, dict]:
+        """The second-most-recent OK row per indicator (for momentum vs last)."""
+        ok_rows: Dict[str, list] = {}
+        for row in self.read_all(module):
+            if row.get("status") == "OK" and row.get("value") not in ("", None):
+                ok_rows.setdefault(row["indicator"], []).append(row)
+        prev: Dict[str, dict] = {}
+        for ind, rows in ok_rows.items():
+            rows.sort(key=lambda r: r["fetched_at"])
+            if len(rows) >= 2:
+                prev[ind] = rows[-2]
+        return prev
